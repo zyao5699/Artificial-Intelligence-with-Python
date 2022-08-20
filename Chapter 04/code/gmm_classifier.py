@@ -3,17 +3,17 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 
 from sklearn import datasets
-from sklearn.mixture import GMM
-from sklearn.cross_validation import StratifiedKFold
+from sklearn.mixture import GaussianMixture
+from sklearn.model_selection import StratifiedKFold
 
 # Load the iris dataset
 iris = datasets.load_iris()
 
 # Split dataset into training and testing (80/20 split)
-indices = StratifiedKFold(iris.target, n_folds=5)
+skf = StratifiedKFold(n_splits=5)
 
 # Take the first fold
-train_index, test_index = next(iter(indices))
+train_index, test_index = next(iter(skf.split(iris.data, iris.target)))
 
 # Extract training data and labels
 X_train = iris.data[train_index]
@@ -27,11 +27,10 @@ y_test = iris.target[test_index]
 num_classes = len(np.unique(y_train))
 
 # Build GMM
-classifier = GMM(n_components=num_classes, covariance_type='full', 
-        init_params='wc', n_iter=20)
+classifier = GaussianMixture(n_components=num_classes, covariance_type='full', max_iter=20)
 
 # Initialize the GMM means 
-classifier.means_ = np.array([X_train[y_train == i].mean(axis=0)
+classifier.means_init = np.array([X_train[y_train == i].mean(axis=0)
                               for i in range(num_classes)])
 
 # Train the GMM classifier 
@@ -42,8 +41,7 @@ plt.figure()
 colors = 'bgr'
 for i, color in enumerate(colors):
     # Extract eigenvalues and eigenvectors
-    eigenvalues, eigenvectors = np.linalg.eigh(
-            classifier._get_covars()[i][:2, :2])
+    eigenvalues, eigenvectors = np.linalg.eigh(classifier.covariances_[i][:2, :2])
 
     # Normalize the first eigenvector
     norm_vec = eigenvectors[0] / np.linalg.norm(eigenvectors[0])
@@ -81,11 +79,11 @@ for i, color in enumerate(colors):
 
 # Compute predictions for training and testing data
 y_train_pred = classifier.predict(X_train)
-accuracy_training = np.mean(y_train_pred.ravel() == y_train.ravel()) * 100
+accuracy_training = np.mean(y_train_pred == y_train) * 100
 print('Accuracy on training data =', accuracy_training)
          
 y_test_pred = classifier.predict(X_test)
-accuracy_testing = np.mean(y_test_pred.ravel() == y_test.ravel()) * 100
+accuracy_testing = np.mean(y_test_pred == y_test) * 100
 print('Accuracy on testing data =', accuracy_testing)
 
 plt.title('GMM classifier')
